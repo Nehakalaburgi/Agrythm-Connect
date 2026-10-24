@@ -1,0 +1,34 @@
+AGRYTHM CONNECT — HOW TO RUN
+=============================
+
+Requirements: Python 3.11+. No external services or API keys needed
+(TRL 3 prototype: text-only loop on mock SQLite data).
+
+1. Install dependencies
+   pip install -r requirements.txt
+
+2. Run the test suite (safety tests must pass)
+   python -m pytest -q
+
+3. List the demo farmers
+   python -m connect.cli --list
+
+4. Start a text conversation with a demo farmer
+   python -m connect.cli --farmer 1
+
+   Replace "1" with any farmer id shown by --list.
+
+Optional flags
+--------------
+--lang hi    Force Hindi for this call   (e.g. python -m connect.cli --farmer 1 --lang hi)
+--lang en    Force English for this call
+--db PATH    Use a SQLite file instead of the default in-memory demo DB
+             (e.g. python -m connect.cli --db demo.sqlite --farmer 1)
+
+Notes
+-----
+- Advisory content in the demo data is placeholder text, not real
+  agronomic guidance (see connect/seed.py).
+- The conversation runs in your terminal: type replies as the "farmer"
+  and the agent will respond, ending in one of: Completed,
+  Follow-up Required, Human Escalation, or Unresolved.
