@@ -8,11 +8,40 @@ from .local import InMemoryFarmerSource, SQLiteLedger, demo_farmers
 from .mock import MockTelephony, MockVoice, MockWeather
 from .trust_ai_stub import TrustAIFarmerSource, TrustAILedger
 
-_FARMERS = {"local": lambda: InMemoryFarmerSource(demo_farmers()), "trust_ai": TrustAIFarmerSource}
+
+def _sheet():
+    from .sheet import SheetFarmerSource
+    path = os.environ.get("GATE0_FARMERS_FILE", "")
+    if not path:
+        raise ValueError("GATE0_FARMERS=sheet needs GATE0_FARMERS_FILE (path to the CSV or Excel sheet)")
+    geocoder = None
+    if os.environ.get("GATE0_WEATHER", "mock") != "mock":   # real weather needs real coordinates
+        from .open_meteo import geocode
+        geocoder = geocode
+    return SheetFarmerSource(path, geocoder)
+
+
+def _open_meteo():
+    from .open_meteo import OpenMeteoWeather
+    from .weather_store import StoredWeather
+    return StoredWeather(OpenMeteoWeather(), os.environ.get("GATE0_DB", ":memory:"))
+
+
+def _sarvam():
+    from .sarvam import SarvamVoice
+    return SarvamVoice()
+
+
+def _sarvam_agent(kind):
+    from . import sarvam_agent
+    return sarvam_agent.SarvamAgentVoice() if kind == "voice" else sarvam_agent.SarvamAgentTelephony()
+
+
+_FARMERS = {"local": lambda: InMemoryFarmerSource(demo_farmers()), "sheet": _sheet, "trust_ai": TrustAIFarmerSource}
 _LEDGER = {"local": lambda: SQLiteLedger(os.environ.get("GATE0_DB", ":memory:")), "trust_ai": TrustAILedger}
-_WEATHER = {"mock": MockWeather}      # add real providers here after the comparison task
-_VOICE = {"mock": MockVoice}
-_TELEPHONY = {"mock": MockTelephony}
+_WEATHER = {"mock": MockWeather, "open_meteo": _open_meteo}
+_VOICE = {"mock": MockVoice, "sarvam": _sarvam, "sarvam_agent": lambda: _sarvam_agent("voice")}
+_TELEPHONY = {"mock": MockTelephony, "sarvam_agent": lambda: _sarvam_agent("telephony")}
 
 
 def build_ports() -> Ports:

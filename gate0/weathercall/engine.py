@@ -7,8 +7,8 @@ from typing import Callable
 
 from .config import Settings
 from .contracts import (
-    AttemptStatus, CallAttempt, CallRequest, CallStatusView, FarmerDayResult,
-    FinalResult, ProviderCallResult, SkipReason,
+    AttemptStatus, CallAttempt, CallRequest, CallStatusView, FarmerContext, FarmerDayResult,
+    FinalResult, ProviderCallResult, SkipReason, WeatherReport,
 )
 from .ports import CallLedger, FarmerSource, TelephonyProvider, VoiceProvider, WeatherProvider
 from .script import build_message
@@ -29,9 +29,17 @@ def _skip(req: CallRequest, reason: SkipReason, ports: Ports) -> FarmerDayResult
     return r
 
 
-def process_request(req: CallRequest, ports: Ports, settings: Settings,
-                    wait: Callable[[int], None] = lambda minutes: None) -> FarmerDayResult:
-    """Handle contract 1: one weather call to one farmer for one day. Safe to call twice (idempotent)."""
+@dataclass(frozen=True)
+class PreparedCall:
+    """A farmer who passed every check, with the weather and the exact words to speak."""
+    farmer: FarmerContext
+    weather: WeatherReport
+    message: str
+
+
+def prepare_call(req: CallRequest, ports: Ports, settings: Settings) -> PreparedCall | FarmerDayResult:
+    """All checks before a phone may ring. Returns the call to make, or the recorded skip.
+    Shared by direct dialling (process_request) and Sarvam campaigns (campaign.py)."""
     if ports.ledger.has_final_result(req.farmer_id, req.call_date):
         return FarmerDayResult(req.farmer_id, req.call_date, FinalResult.SKIPPED, 0, SkipReason.ALREADY_CALLED)
 
@@ -48,9 +56,31 @@ def process_request(req: CallRequest, ports: Ports, settings: Settings,
     weather = ports.weather.get_weather(farmer.place_name, farmer.latitude, farmer.longitude, req.call_date)
     if weather is None:
         return _skip(req, SkipReason.NO_WEATHER, ports)
+    return PreparedCall(farmer, weather, build_message(farmer, weather))
 
-    message = build_message(farmer, weather)
-    audio_ref = ports.voice.synthesize(message, farmer.language)
+
+def final_result(last: AttemptStatus) -> FinalResult:
+    """The day's result from the last attempt's status."""
+    if last is AttemptStatus.ANSWERED:
+        return FinalResult.ANSWERED
+    if last is AttemptStatus.FAILED:
+        return FinalResult.FAILED
+    return FinalResult.UNANSWERED
+
+
+def process_request(req: CallRequest, ports: Ports, settings: Settings,
+                    wait: Callable[[int], None] = lambda minutes: None) -> FarmerDayResult:
+    """Handle contract 1: one weather call to one farmer for one day. Safe to call twice (idempotent)."""
+    prepared = prepare_call(req, ports, settings)
+    if isinstance(prepared, FarmerDayResult):
+        return prepared
+    farmer, weather, message = prepared.farmer, prepared.weather, prepared.message
+    try:
+        audio_ref = ports.voice.synthesize(message, farmer.language)
+    except Exception:  # a voice outage fails this farmer for today, never the whole morning run
+        result = FarmerDayResult(farmer.farmer_id, req.call_date, FinalResult.FAILED, 0)
+        ports.ledger.record_day_result(result)
+        return result
 
     last: ProviderCallResult | None = None
     for n in range(1, settings.max_attempts + 1):
@@ -69,14 +99,7 @@ def process_request(req: CallRequest, ports: Ports, settings: Settings,
             wait(settings.retry_gap_minutes)
 
     assert last is not None
-    if last.status is AttemptStatus.ANSWERED:
-        final = FinalResult.ANSWERED
-    elif last.status is AttemptStatus.FAILED:
-        final = FinalResult.FAILED
-    else:
-        final = FinalResult.UNANSWERED
-    attempts = n
-    result = FarmerDayResult(farmer.farmer_id, req.call_date, final, attempts)
+    result = FarmerDayResult(farmer.farmer_id, req.call_date, final_result(last.status), n)
     ports.ledger.record_day_result(result)
     return result
 
