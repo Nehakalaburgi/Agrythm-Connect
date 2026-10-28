@@ -41,4 +41,5 @@ def test_core_never_imports_adapters():
     import pathlib
     root = pathlib.Path(__file__).parent.parent / "weathercall"
     for name in ("engine.py", "ports.py", "contracts.py", "script.py", "config.py"):
-        assert "import adapters" not in (root / name).read_text() and "from .adapters" not in (root / name).read_text(), name
+        source = (root / name).read_text(encoding="utf-8")
+        assert "import adapters" not in source and "from .adapters" not in source, name

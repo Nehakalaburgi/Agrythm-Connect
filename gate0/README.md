@@ -18,6 +18,17 @@ python -m weathercall.cli --date 2026-11-05
 ```
 This runs a full morning with mock providers and 10 fake farmers, including a no-consent farmer, an inactive farmer, a place with no weather, a busy line and a farmer who never answers.
 
+## Real farmers, Sarvam voice and the daily trigger
+1. Put the farmer sheet (CSV or Excel) in `gate0/data/`. This folder is git-ignored. Columns: Farmer ID, Farmer Name, Mobile Number, Village, District, State, Preferred Calling Language (Hindi or English), Call Consent (Yes or No), and optionally Active, Latitude, Longitude. See `farmers.example.csv`.
+2. Copy `.env.example` to `.env` and set `GATE0_FARMERS=sheet`, `GATE0_FARMERS_FILE=data/<your file>`, `GATE0_VOICE=sarvam` and `SARVAM_API_KEY=<key>`.
+3. Set `GATE0_WEATHER=open_meteo` and check the weather first, without calling anyone: `python -m weathercall.weather_check`. It shows the place matched for each farmer and saves the forecast. Farmers marked NO WEATHER will not be called.
+4. Dry run for one day: `python -m weathercall.cli --date 2026-10-27`.
+5. Calls scheduled by Sarvam (recommended): `python -m weathercall.campaign create --start 2026-10-27 --days 4`, then `python -m weathercall.schedule activate --start 2026-10-27 --days 4 --mode campaign`. See `docs/SARVAM_SETUP.md` section 3.
+   Or our code dials directly. Turn on the trigger (Windows): `python -m weathercall.schedule activate --start 2026-10-27 --days 4 --time 09:00`. It checks the setup and warns about anything still mocked.
+6. Check it with `python -m weathercall.schedule status`. Turn it off with `python -m weathercall.schedule deactivate`. Each day's summary is in `logs/run-YYYY-MM-DD.log`.
+
+The task only runs while you are logged in, and it is skipped if the computer is off at the call time.
+
 ## How it is built to merge later
 ```
  scheduler / operator / Trust AI

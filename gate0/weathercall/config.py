@@ -9,7 +9,7 @@ from dataclasses import dataclass
 class Settings:
     max_attempts: int = 3               # UNCONFIRMED with client
     retry_gap_minutes: int = 30         # UNCONFIRMED with client
-    call_time: str = "07:00"            # UNCONFIRMED with client
+    call_time: str = "09:00"            # team trial choice (26 Oct 2026); UNCONFIRMED with client
     on_weather_missing: str = "skip"    # skip | (other behaviours to be agreed)
     target_seconds_min: int = 30
     target_seconds_max: int = 40
