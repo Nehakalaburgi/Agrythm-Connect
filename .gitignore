@@ -12,6 +12,15 @@ venv/
 *.db
 *.sqlite3
 
+# Farmer sheets, call audio and run logs (real data, never commit)
+*.csv
+*.xlsx
+*.xls
+!gate0/farmers.example.csv
+gate0/data/
+gate0/audio/
+gate0/logs/
+
 # IDE
 .vscode/
 .idea/
