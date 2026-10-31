@@ -1,62 +1,31 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { 
   X, 
-  Play, 
-  Pause, 
-  Volume2, 
   CloudRain, 
   Thermometer, 
   Wind, 
   Droplets, 
   Phone, 
   MapPin, 
-  MessageSquare
+  MessageSquare,
+  Clock
 } from 'lucide-react';
 
 import { maskPhoneNumber } from '../utils';
 
 export const CallDetailDrawer = ({ call, onClose }) => {
-  const [isPlaying, setIsPlaying] = useState(false);
-  const [playbackTime, setPlaybackTime] = useState(0);
-  const [activeCallId, setActiveCallId] = useState(call?.call_id);
-
-  // Sync internal state when a different call is selected
-  if (call && call.call_id !== activeCallId) {
-    setActiveCallId(call.call_id);
-    setIsPlaying(false);
-    setPlaybackTime(0);
-  }
-
-  // Audio timer simulation
-  useEffect(() => {
-    let interval = null;
-    const dur = parseInt(call?.duration_sec, 10) || 60;
-    if (isPlaying) {
-      interval = setInterval(() => {
-        setPlaybackTime((prev) => {
-          if (prev >= dur) {
-            setIsPlaying(false);
-            return 0;
-          }
-          return prev + 1;
-        });
-      }, 1000);
-    }
-    return () => clearInterval(interval);
-  }, [isPlaying, call]);
-
   if (!call) return null;
 
-  const formatTimer = (seconds) => {
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${mins < 10 ? '0' : ''}${mins}:${secs < 10 ? '0' : ''}${secs}`;
-  };
-
-  const durationSec = parseInt(call.duration_sec, 10) || 60;
-  const progressPercent = Math.min(100, Math.round((playbackTime / durationSec) * 100));
-
   const rawTranscript = call.transcript_preview || call.transcript || '';
+
+  const formatDuration = (seconds) => {
+    const s = parseInt(seconds, 10);
+    if (isNaN(s) || s <= 0) return '0s';
+    const mins = Math.floor(s / 60);
+    const secs = s % 60;
+    if (mins > 0) return `${mins}m ${secs}s`;
+    return `${secs}s`;
+  };
 
   return (
     <>
@@ -135,57 +104,12 @@ export const CallDetailDrawer = ({ call, onClose }) => {
                 <span className="px-2.5 py-1 rounded-xl bg-emerald-50 border border-emerald-200 text-xs font-semibold text-trust-green">
                   {call.farmer_id || 'N/A'}
                 </span>
-              </div>
-            </div>
-          </div>
-
-          {/* Interactive Audio Player & Simulated Waveform */}
-          <div className="p-5 rounded-2xl bg-trust-navy text-white space-y-3 shadow-md">
-            <div className="flex items-center justify-between text-xs text-slate-300">
-              <span className="text-[10px] font-bold tracking-wider uppercase text-slate-300">
-                Voice Call Recording & Synthesis Stream
-              </span>
-              <span className="font-mono text-xs text-emerald-400 font-bold">
-                {formatTimer(playbackTime)} / {formatTimer(durationSec)}
-              </span>
-            </div>
-
-            {/* Audio Waveform Bars */}
-            <div className="flex items-center gap-1 h-10 py-1">
-              {[40, 65, 80, 50, 95, 70, 30, 85, 100, 60, 45, 90, 75, 40, 85, 95, 60, 70, 90, 50, 40, 65, 80, 50, 95, 70, 30, 85, 100, 60].map((h, i) => {
-                const isActive = (i / 30) * 100 <= progressPercent;
-                return (
-                  <div
-                    key={i}
-                    className={`flex-1 rounded-full transition-all duration-150 ${
-                      isActive ? 'bg-emerald-400' : 'bg-slate-600/60'
-                    }`}
-                    style={{
-                      height: isPlaying ? `${Math.max(20, (h * (Math.sin(playbackTime + i) * 0.3 + 0.8)))}%` : `${h}%`,
-                    }}
-                  />
-                );
-              })}
-            </div>
-
-            {/* Playback Controls */}
-            <div className="flex items-center justify-between pt-1">
-              <div className="flex items-center gap-3">
-                <button
-                  onClick={() => setIsPlaying(!isPlaying)}
-                  className="w-10 h-10 rounded-full bg-emerald-500 hover:bg-emerald-400 text-trust-navy flex items-center justify-center font-bold transition-transform active:scale-95 shadow-md cursor-pointer"
-                >
-                  {isPlaying ? <Pause className="w-5 h-5 fill-current" /> : <Play className="w-5 h-5 fill-current ml-0.5" />}
-                </button>
-                <div className="text-xs">
-                  <div className="font-semibold text-white">Post-Call Audio Stream</div>
-                  <div className="text-[10px] text-slate-300">Duration: {durationSec} seconds</div>
-                </div>
-              </div>
-
-              <div className="flex items-center gap-2 text-xs text-slate-300">
-                <Volume2 className="w-4 h-4" />
-                <span className="font-mono text-[11px] bg-white/10 px-2 py-0.5 rounded">1.0x</span>
+                {call.duration_sec ? (
+                  <span className="px-2.5 py-1 rounded-xl bg-slate-100 border border-slate-200 text-xs font-semibold text-slate-700 flex items-center gap-1 font-mono">
+                    <Clock className="w-3 h-3 text-slate-400" />
+                    {formatDuration(call.duration_sec)}
+                  </span>
+                ) : null}
               </div>
             </div>
           </div>
